@@ -25,6 +25,9 @@ for MODEL_PATH in "${MODELS[@]}"; do
     MODEL_FILENAME=$(basename "$MODEL_PATH")
     MODEL_TAG="${MODEL_FILENAME%.gguf}"
     
+    # Remove quantization suffixes from model tag
+    MODEL_TAG=$(echo "$MODEL_TAG" | sed -E 's/(-[Qq]4[_0-9]*)?$//' | sed -E 's/Q4_0_4_4$//' | sed -E 's/-bf16$//')
+    
     echo ""
     echo "========================================"
     echo "Processing: $MODEL_TAG"

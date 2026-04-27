@@ -6,6 +6,7 @@ Parse llama-bench and llm_bench CSV files from logs folder and create a consolid
 import csv
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 import statistics
@@ -29,25 +30,28 @@ def get_framework_tag(filename: str, device: str) -> str:
     """Map filename to framework tag"""
     filename_lower = filename.lower()
     
+    # Extract input context size if present
+    ic_match = re.search(r'ic(\d+)', filename_lower)
+    ic_suffix = f'_ic{ic_match.group(1)}' if ic_match else ''
+    
     if 'llama_ggml' in filename_lower:
-        return f'llama.cpp/ggml/{device}'
+        return f'llamaCPP_ggml_{device}{ic_suffix}'
     elif 'llama_vulkan' in filename_lower:
-        return f'llama.cpp/vulkan/{device}'
+        return f'llamaCPP_Vulkan_{device}{ic_suffix}'
     elif 'llama_ov' in filename_lower:
-        return f'llama.cpp/openvino/{device}'
+        return f'llamaCPP_OV_{device}{ic_suffix}'
     elif 'ov_genai_gguf' in filename_lower:
-        return f'openvino.genai/gguf/{device}'
+        return f'OV_GENAI_GGUF_{device}{ic_suffix}'
     elif 'ov_genai_ir' in filename_lower:
-        # Extract optimization mode from filename
+        # Extract optimization strategy for IR models
+        opt_suffix = ''
         if '_cw_' in filename_lower:
-            opt = 'CW'
-        elif '_gs32_' in filename_lower:
-            opt = 'GS32'
+            opt_suffix = '_CW'
         elif '_default_' in filename_lower:
-            opt = 'DEFAULT'
-        else:
-            opt = 'UNKNOWN'
-        return f'openvino.genai/ir/{opt}/{device}'
+            opt_suffix = '_DEFAULT'
+        elif '_gs32_' in filename_lower:
+            opt_suffix = '_GS32'
+        return f'OV_GENAI_IR_{device}{opt_suffix}{ic_suffix}'
     
     return 'UNKNOWN'
 
@@ -259,7 +263,19 @@ def parse_llm_bench_csv(filepath: Path, model_name: str) -> List[Dict]:
     framework = get_framework_tag(filepath.name, device)
     
     # Extract quantization from precision or model name
-    quantization = precision if precision else extract_quantization_from_filename(model)
+    # For openvino.genai/ir models, extract from framework field in CSV
+    if 'ov_genai_ir' in filename and framework_raw:
+        # framework_raw contains something like "ov(INT4_SYM_CW)" or just "ov"
+        match = re.search(r'ov\((.*?)\)', framework_raw)
+        if match:
+            quantization = match.group(1)
+        elif model.startswith('INT4'):
+            # Some CSV files have quantization in model field instead
+            quantization = model
+        else:
+            quantization = precision if precision else extract_quantization_from_filename(model)
+    else:
+        quantization = precision if precision else extract_quantization_from_filename(model)
     
     # Get metrics from avg row
     try:
@@ -372,7 +388,10 @@ def main():
         if not subdir.is_dir():
             continue
         
+        # Clean model name by removing quantization suffixes
         model_name = subdir.name
+        model_name = re.sub(r'-Q4_0$', '', model_name)
+        model_name = re.sub(r'-Q4_0_4_4$', '', model_name)
         print(f"Processing {model_name}...")
         
         # Process llama-bench files (*.log files that are CSV)
@@ -401,7 +420,9 @@ def main():
     
     # Write output CSV
     if all_results:
-        output_file = script_dir / 'benchmark_results.csv'
+        # Generate timestamped filename
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+        output_file = script_dir / f'benchmarking_results_{timestamp}.csv'
         
         fieldnames = [
             'Model', 'Framework', 'Device', 'Quantization',

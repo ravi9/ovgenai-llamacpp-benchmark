@@ -1,21 +1,26 @@
 #!/bin/bash
-MODELS=(
-  "models/Qwen_Qwen2.5-1.5B-Instruct"
-  "models/Qwen_Qwen3-8B"
-  "models/meta-llama_Llama-3.1-8B-Instruct"
-  "models/microsoft_Phi-3-mini-4k-instruct"
-  "models/microsoft_Phi-3.5-mini-instruct"
-  "models/LiquidAI_LFM2-2.6B"
-  "models/tencent_Hunyuan-7B-Instruct"
-  "models/openbmb_MiniCPM-1B-sft-bf16"
-  "models/deepseek-ai_DeepSeek-R1-Distill-Llama-8B"
-  "models/mistralai_Mistral-7B-Instruct-v0.3"
-)
 
-#"models/meta-llama_Llama-3.2-1B-Instruct"
+# Check if file argument is provided
+if [ $# -eq 0 ]; then
+  echo "Usage: $0 <models_file>"
+  exit 1
+fi
 
-for MODEL_ID in "${MODELS[@]}"; do
-  MODEL_NAME=$(basename $MODEL_ID)
+MODELS_FILE=$1
+
+# Read models from file
+while IFS= read -r line; do
+  # Skip empty lines and comments
+  [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+  
+  # Remove quotes and trim whitespace
+  MODEL=$(echo "$line" | tr -d '"' | xargs)
+  
+  # Extract model name (part after "/")
+  MODEL_NAME="${MODEL#*/}"
+  
+  # Construct model path
+  MODEL_ID="models/${MODEL_NAME}"
 
   # INT4 SYM Channel-wise (group_size=-1 = no grouping, per-channel)
   optimum-cli export openvino \
@@ -44,4 +49,4 @@ for MODEL_ID in "${MODELS[@]}"; do
     --library transformers \
     --weight-format int4 \
     models/ir/${MODEL_NAME}/INT4_DEFAULT
-done
+done < "$MODELS_FILE"
