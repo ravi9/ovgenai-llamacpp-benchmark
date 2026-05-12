@@ -1,0 +1,97 @@
+# =======================================================================
+# BUILD & INSTALL CONFIGURATION
+# Controls: cloning, dependencies, OV install, model downloads, IR export,
+#           and all directory paths.
+# =======================================================================
+
+# Optional proxy. Set use_proxy to TRUE or FALSE.
+proxy:
+  use_proxy: true
+  proxy_list:
+    - export HTTP_PROXY=http://proxy-abc.com:1080
+    - export HTTPS_PROXY=http://proxy-abc.com:1080
+    - export NO_PROXY=localhost,127.0.0.1
+
+
+# ========================= DIRECTORIES =================================
+# Single source of truth for all paths. benchmark_config references these.
+directories:
+  build_dir: ./BUILD
+  models_dir: ./STORE/models
+  gguf_dir: ./STORE/models/gguf
+  ir_dir: ./STORE/models/ir
+  results_dir: ./RESULTS
+  logs_dir: ./logs
+  prompts_dir: ./prompts
+
+
+# ========================= INSTALL =====================================
+install:
+  openvino:
+    enabled: true
+    install_method: archive 
+    dest_folder: /opt/intel/openvino
+    use_latest: true
+    archive_url: https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/linux/openvino_toolkit_ubuntu24_2026.1.0.21367.63e31528c62_x86_64.tgz
+    setupvars_script: /opt/intel/openvino/setupvars.sh
+
+  llamacpp:
+    enabled: true
+    install_methods:
+      build: true
+      release: false
+    build:
+      repo: https://github.com/ggml-org/llama.cpp.git
+      ref: ""
+      clone_dir: ./BUILD/llama.cpp
+      install_dir: ./BUILD/llama.cpp/install
+    release:
+      url: https://github.com/ggml-org/llama.cpp/releases
+      tag: ""
+      install_dir: ./BUILD/llama.cpp/release
+    backends_to_setup:
+      ggml_cpu: true
+      vulkan: true
+      openvino: true
+
+  genai:
+    enabled: true
+    repo: https://github.com/openvinotoolkit/openvino.genai.git
+    ref: ""
+    clone_dir: ./BUILD/openvino.genai
+    tool_path: tools/llm_bench
+    venv_dir: ./BUILD/ov-llm-bench-env
+
+
+# ========================= MODEL DOWNLOADS ==============================
+# Models can be added manually to ./STORE/models/...
+# Remove URLs/HF IDs below if download/quantization not needed.
+gguf_models:
+  quantizations:
+    Q4_0:
+      - https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_0.gguf
+      - https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_0_8_8.gguf
+    Q4_K:
+      - https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K.gguf
+      - https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K.gguf
+
+
+# =============== HF MODELS (for IR export) ==============================
+hf_models:
+  - meta-llama/Llama-3.2-1B-Instruct
+  - meta-llama/Llama-3.1-8B-Instruct
+
+
+# =============== IR MODEL EXPORT (optimum-cli) ==========================
+ir_export:
+  quantizations:
+    int4_sym_cw:
+      weight_format: int4
+      sym: true
+      group_size: -1
+    int4_sym_gs32:
+      weight_format: int4
+      sym: true
+      group_size: 32
+    int4_default:
+      weight_format: int4

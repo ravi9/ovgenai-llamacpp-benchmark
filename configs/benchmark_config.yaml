@@ -1,0 +1,101 @@
+# =======================================================================
+# BENCHMARK CONFIGURATION
+# Controls: which devices/frameworks to benchmark and how.
+# All paths are read from build_config.yaml at runtime.
+# =======================================================================
+
+# ===================== RUN MATRIX ======================================
+# Toggle devices and frameworks on/off per run.
+run_matrix:
+  devices:
+    cpu: true
+    gpu: true
+    npu: true
+
+  cpu:
+    llamacpp_ggml_cpu: true
+    llamacpp_ov_cpu: true
+    ov_genai_ir_cpu: true
+    ov_genai_gguf_cpu: true
+  gpu:
+    llamacpp_vulkan_gpu: true
+    llamacpp_ov_gpu: true
+    ov_genai_ir_gpu: true
+    ov_genai_gguf_gpu: true
+  npu:
+    llamacpp_ov_npu: true
+    ov_genai_ir_npu: true
+    ov_genai_gguf_npu: true
+
+
+# ===================== LLAMACPP BENCHMARK ===============================
+llamacpp:
+  quants_to_run:
+    Q4_0: true
+    Q4_K: true
+    
+  llama-bench:
+    pp_tokens: 32
+    tg_tokens:
+      - 32
+      - 128
+    batch_size: 32
+    repetitions: 3
+    context_size: 256
+    flash_attention: 1
+    output_format: csv
+    n_gpu_layers: 99
+
+  llama-perplexity:
+    enabled: false
+    ctx: 512
+    batch: 512
+
+  llama-cli:
+    enabled: false
+    prompt: "Reply with exactly: SMOKE_OK"
+    expect_text: "SMOKE_OK"
+    require_nonempty: true
+    
+  runtime_env:
+    cpu:
+      GGML_OPENVINO_DEVICE: CPU
+      GGML_OPENVINO_STATEFUL_EXECUTION: "1"
+      GGML_OPENVINO_CACHE_DIR: /tmp/ov_cpu_cache
+    gpu:
+      GGML_OPENVINO_DEVICE: GPU
+      GGML_OPENVINO_STATEFUL_EXECUTION: "1"
+      GGML_OPENVINO_CACHE_DIR: /tmp/ov_gpu_cache
+    npu:
+      GGML_OPENVINO_DEVICE: NPU
+      GGML_OPENVINO_CACHE_DIR: /tmp/ov_npu_cache
+
+
+# ================ OV_GENAI (OpenVINO GenAI) ============================
+ov_genai:
+  quants_to_run:
+    ir:
+      int4_sym_cw: true
+      int4_sym_gs32: true
+      int4_default: true
+    gguf:
+      Q4_0: true
+      Q4_K: true
+      
+  llm_bench:
+    prompt: "Describe the key innovations in artificial intelligence over the last decade, including deep learning, transformers, and large language models."
+    prompt_file: prompt_32tok.jsonl
+    output_tokens:
+      - 32
+      - 128
+    iterations: 3
+    batch_size: 1
+    seed: 42
+    disable_prompt_permutation: true
+    task: text_gen
+
+  runtime_env: {}
+
+  memory:
+    enabled: false
+    mem_consumption: 2
